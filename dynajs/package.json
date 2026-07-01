@@ -43,6 +43,8 @@
     "test262:run": "npm run build && node ./bench/test262/run.cjs",
     "test262:run-node": "npm run build && npm run test262:run"
   },
+  "license": "BSD-3-Clause",
+  "type": "module",
   "devDependencies": {
     "@types/estree": "^1.0.8",
     "@types/node": "^24.10.1",
