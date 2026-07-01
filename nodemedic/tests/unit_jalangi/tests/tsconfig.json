@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "ES2015",
+        "skipLibCheck": true,
+        "removeComments": false,
+        "preserveConstEnums": true,
+        "rootDir": "../..",
+        "outDir": "./_build",
+        "types": ["node"],
+        "strict": false
+    },
+    "include": [
+        "./*.ts", 
+        "../../test_header.ts", 
+        "../../taint_header.ts",
+    ],
+    "exclude": []
+}

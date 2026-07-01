@@ -1,0 +1,36 @@
+# Ignored by Docker
+.git
+docs/
+old/
+pipeline/node_modules/
+pipeline/packages/
+analysis/packages_to_analyze/cache
+analysis/packages_to_analyze/node_modules
+analysis/packages_to_analyze/output
+persist/
+packages/
+output/
+
+# IDE files
+.idea/
+.vscode/
+.devcontainer
+
+# Dependencies
+node_modules/
+lib/jalangi2*
+
+# Build files
+.ipynb_checkpoints*
+src/**/*.js
+src/**/*.js.map
+*.stub
+*_jalangi_.js
+*_jalangi_.json
+tests/reduce/tests/*
+tests/unit/*.js
+tests/test_header.js
+tests/taint_header.js
+
+# Output
+taint*.png
