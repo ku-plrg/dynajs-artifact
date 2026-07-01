@@ -4,7 +4,7 @@ echo "Setting up dependencies"
 
 # echo "Cloning dynajs"
 # # cloning is not needed now?
-# git clone https://github.com/ku-plrg/dynajs.git
+# git clone <link-anonymized>/dynajs.git
 (cd dynajs && npm i && npm run build)
 
 echo "Cloning jalangi2"
