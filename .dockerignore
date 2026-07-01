@@ -1,0 +1,14 @@
+# Keep the build context lean; everything below is regenerated inside the image.
+**/node_modules
+**/dist
+**/.git
+**/tsconfig.tsbuildinfo
+**/coverage
+# extractor build outputs / sbt caches
+extractor/target
+extractor/project/target
+extractor/lib_managed
+extractor/bin
+# esmeta submodules are re-fetched in the image if needed for extraction
+extractor/ecma262
+extractor/tests/test262
