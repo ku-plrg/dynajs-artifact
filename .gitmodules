@@ -1,0 +1,6 @@
+[submodule "ecma262"]
+	path = extractor/ecma262
+	url = https://github.com/tc39/ecma262
+[submodule "test262"]
+	path = extractor/tests/test262
+	url = https://github.com/tc39/test262.git
