@@ -46,16 +46,15 @@ cd expose
 ./install
 ```
 
-
-> [!NOTE]
-> 
-
-
-## ExpoSE
-
 ## NodeMedic
 
-## Extractor
+```sh
+# start from repository root
+cd nodemedic
+npm install
+npm run local-setup
+```
+
 
 # How to check
 
@@ -80,7 +79,8 @@ npm run copy
 ```sh
 # start from repository root
 cd dynajs
-npm run 
+npm run microbench:taint
+npm run microbench:concolic
 ```
 
 
