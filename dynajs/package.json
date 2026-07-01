@@ -43,16 +43,6 @@
     "test262:run": "npm run build && node ./bench/test262/run.cjs",
     "test262:run-node": "npm run build && npm run test262:run"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ku-plrg/dynajs.git"
-  },
-  "license": "BSD-3-Clause",
-  "type": "module",
-  "bugs": {
-    "url": "https://github.com/ku-plrg/dynajs/issues"
-  },
-  "homepage": "https://github.com/ku-plrg/dynajs#readme",
   "devDependencies": {
     "@types/estree": "^1.0.8",
     "@types/node": "^24.10.1",

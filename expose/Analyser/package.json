@@ -6,7 +6,6 @@
   "readme": "README.md",
   "dependencies": {
     "jalangi2": "git+https://github.com/ExpoSEJS/jalangi2.git#c2961c4374fa5f5fb35d114b98621cbe38b5c85f",
-    "dynajs": "git+https://github.com/ku-plrg/dynajs.git#44d4fd29857233586243f3206eded98ffc58eff8",
     "browserify": "^14.1.0",
     "@babel/cli": "^7.4.4",
     "@babel/core": "^7.4.5",
