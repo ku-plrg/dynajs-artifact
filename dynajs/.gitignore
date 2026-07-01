@@ -1,0 +1,74 @@
+# Generated files by DynaJS
+*__dynajs__.js
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output/
+
+# Production & Build
+build/
+dist/
+lib/
+*.min.js
+*.map
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+*.xml
+# *.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.npm/
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor/IDE specific settings
+.vscode/
+.idea/
+*.swp
+*.tgz
+
+# Generated files by Jalangi2
+*_jalangi_.js
+*_jalangi_.json
+
+# pytest cache
+.pytest_cache/
+
+# pytest results
+.cache/
+
+# coverage reports
+.coverage
+coverage.xml
+htmlcov/
+cov.xml
+
+# Python basic ignores
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment folders
+.env
+.venv
+env/
+venv/
