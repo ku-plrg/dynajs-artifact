@@ -43,6 +43,7 @@ RUN apt-get install -y rsync
 # Copy over files
 COPY lib ./lib
 COPY src ./src
+COPY scripts ./scripts
 COPY tests ./tests
 COPY test_pipeline ./test_pipeline
 COPY package*.json ./
@@ -62,6 +63,10 @@ RUN mkdir analysisArtifacts
 # Save a few runtime seconds by pre-compiling .ts files
 RUN cd pipeline && tsc -b
 RUN tsc -b
+
+# Build the new DynaJS analysis bundle (-> src/vendor/NodeMedicAnalysis.mjs),
+# selected at runtime with NODEMEDIC_NEW_ENGINE=1
+RUN node scripts/build-nodemedic-analysis.mjs
 
 # Hand over to bash for interactive usage
 COPY entrypoint.sh ./entrypoint.sh

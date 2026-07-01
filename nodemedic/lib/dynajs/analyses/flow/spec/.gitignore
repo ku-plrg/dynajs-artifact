@@ -1,0 +1,3 @@
+!.gitignore
+# now we commit the generated code
+# !*.manual.ts

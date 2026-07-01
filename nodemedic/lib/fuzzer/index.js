@@ -1,4 +1,5 @@
 // JALANGI DO NOT INSTRUMENT
+// DYNAJS DO NOT INSTRUMENT
 
 // Main fuzzer file
 //var random = require('random-object-generator');
@@ -410,6 +411,40 @@ function update_weights(spec, concretization, reward, globalreward){
     return spec;
 }
 
+function isPrimitive(value) {
+    return value === null || (typeof value !== 'object' && typeof value !== 'function');
+}
+
+const NOT_A_PRIMITIVE_WRAPPER = Symbol('not a primitive wrapper');
+
+function coercePrimitiveWrapper(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return NOT_A_PRIMITIVE_WRAPPER;
+    }
+
+    const keys = Object.keys(obj);
+    if (keys.length === 0) {
+        return NOT_A_PRIMITIVE_WRAPPER;
+    }
+    if (!keys.every(key => key === 'valueOf' || key === 'toString')) {
+        return NOT_A_PRIMITIVE_WRAPPER;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(obj, 'valueOf') || typeof obj.valueOf !== 'function') {
+        return NOT_A_PRIMITIVE_WRAPPER;
+    }
+    try {
+        const primitive = obj.valueOf();
+        if (isPrimitive(primitive)) {
+            return primitive;
+        }
+    } catch {
+        // Keep the original object representation if coercion is unsafe.
+    }
+
+    return NOT_A_PRIMITIVE_WRAPPER;
+}
+
 function serialize(obj, seen = new WeakMap()) {
     if (obj === null) return 'null';
     if (obj === undefined) return 'undefined';
@@ -427,6 +462,10 @@ function serialize(obj, seen = new WeakMap()) {
     if (Array.isArray(obj)) return '[' + obj.map(item => serialize(item, seen)).join(', ') + ']';
     if (obj instanceof Error) return 'new Error()';
     if (typeof obj === 'object') {
+        const primitive = coercePrimitiveWrapper(obj);
+        if (primitive !== NOT_A_PRIMITIVE_WRAPPER) {
+            return serialize(primitive, seen);
+        }
         if (seen.has(obj)) return undefined;  // Handle circular reference
 
         const objName = `obj${seen.size + 1}`;
@@ -569,6 +608,8 @@ class Fuzzer {
         this.seed_spec = [];
         this.strings_only = fuzz_strings_only;
         this.progress = []; // List of pairs [timestamp, global_coverage]
+        this.num_exec = 0;
+        this.fuzz_start_ms = Date.now();
 
         this.use_em = use_em;
 
@@ -802,6 +843,7 @@ class Fuzzer {
             globalcov is the total number of conditions covered so far by the fuzzer
         */
 
+        this.num_exec += 1;
         
         var cov = trace_prop.code_coverage;
         var globalcov = trace_prop.global_code_coverage;
@@ -869,7 +911,12 @@ class Fuzzer {
 
     save_results(progress_results_path, results_path, last_tried_entrypoint, last_tried_input, entrypoint, mode){
         //var last_tried_input = get_representation(last_tried_input);
-        var result = {"fuzzmode": mode, "max_global_cov": this.max_global_cov, "max_cov": this.max_cov, "entrypoint": last_tried_entrypoint, "input": last_tried_input, "specs": "[ " + this.get_specs(entrypoint).join(",") + " ]"};
+        var first_flow_abs = (typeof globalThis !== 'undefined') ? globalThis.__nm_first_flow_ms__ : undefined;
+        var time_to_first_flow_ms = (first_flow_abs != null) ? (first_flow_abs - this.fuzz_start_ms) : null;
+        var result = {"fuzzmode": mode, "max_global_cov": this.max_global_cov, "max_cov": this.max_cov, "entrypoint": last_tried_entrypoint, "input": last_tried_input, "specs": "[ " + this.get_specs(entrypoint).join(",") + " ]",
+            "num_exec": this.num_exec,
+            "fuzz_wall_ms": Date.now() - this.fuzz_start_ms,
+            "time_to_first_flow_ms": time_to_first_flow_ms};
         fs.writeFileSync(results_path, JSON.stringify(result));
 
         var progress_result = {"coverage": this.progress};
@@ -894,3 +941,5 @@ module.exports = {
 };
 
 // JALANGI DO NOT INSTRUMENT
+// JALANGI DO NOT INSTRUMENT
+// DYNAJS DO NOT INSTRUMENT

@@ -1,3 +1,32 @@
+# New analysis engine (DynaJS) — branch `new-analysis`
+
+This branch ports the taint engine to a DynaJS `FlowAnalysis` subclass in
+`src/dynajs-analysis/`. If running locally, you need to first build the analysis (Docker runs this automatically):
+
+```bash
+# build the analysis bundle -> src/vendor/NodeMedicAnalysis.mjs
+node scripts/build-nodemedic-analysis.mjs
+
+# run the tests
+node scripts/run-unit-tests.mjs                 # 31 unit tests
+node scripts/run-nodemedic-analysis-tests.mjs   # 17 driver fixtures
+```
+
+Select it in the pipeline with the flag `--dynajs-engine`.
+Example:
+
+```sh
+pipeline/run_pipeline.sh 1 lower 0 --mode=full --log-level=debug --cache-dir=packageData --output-dir=analysisArtifacts --tmp-dir=/tmp/ --z3-path=/nodetaint/z3/bin/z3 --fresh --package=sirrobert-wc@0.0.1 --start-index=0 --end-index=1 --min-depth=-1 --policies=object:precise,string:precise,array:precise --batch-size=1 --stop-on-1st-exploited --convertPotentialToString --dynajs --dynajs-engine
+```
+
+- **Docker:** the image builds the base NodeMedic stack automatically (`make`,
+  `tsc`), but you still run `node scripts/build-nodemedic-analysis.mjs` inside the
+  container.
+- **Local:** after the Local Installation steps below (`lib/setup-deps.sh`,
+  `npm i`, `make`), run the same build + test commands above. If you changed the
+  vendored DynaJS (`lib/dynajs`), rebuild it first:
+  `cd lib/dynajs && node scripts/build-entry.mjs && node scripts/build-analysis.mjs`.
+
 ## Generated PoCs
 
 Directory `artifacts` contains packages for which NodeMedic generated a valid exploit.

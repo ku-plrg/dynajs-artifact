@@ -2,7 +2,7 @@ import { State, taintEntry, PropMap, ID, setMt, getTc } from '../State';
 import { newPathNode, PathNode } from '../TaintPaths';
 import { Wrapped } from '../Wrapper';
 import { F, NativeFunction } from '../Flib';
-import { getTaintEntry, getValue, getPropTaint, oid } from '../Taint';
+import { getTaintEntry, getValue, getPropTaint, oid, initPropMap } from '../Taint';
 
 declare const require: any;
 
@@ -18,9 +18,21 @@ interface DynaWrapped<T = unknown> {
     info: DynaTaintInfo;
 }
 
-export interface DynaStringResult {
-    value: string;
+export interface DynaStringCallResult {
+    methodName: string;
+    value: any;
     taint: taintEntry;
+    elementTaints?: taintEntry[];
+}
+
+interface DynaStringOptions {
+    arrayPrecision: string;
+}
+
+interface DynaStringMethodSpec {
+    name: string;
+    native: NativeFunction;
+    invoke(model: any, base: DynaWrapped<string>, args: DynaWrapped[]): DynaWrapped | DynaWrapped[];
 }
 
 function isDynaWrapped(value: unknown): value is DynaWrapped {
@@ -59,6 +71,13 @@ function taintEntryToInfo(value: string, entry: taintEntry): DynaTaintInfo {
             chars: Array(value.length).fill(entry.taintBit),
         }),
     });
+}
+
+function valueToInfo(value: any, entry: taintEntry): DynaTaintInfo {
+    if (F.isString(value)) {
+        return taintEntryToInfo(String(value), entry);
+    }
+    return { bit: entry.taintBit };
 }
 
 function infoForBase<T>(value: T, parents: DynaWrapped[]): DynaTaintInfo {
@@ -139,22 +158,40 @@ const specOps = {
         });
     },
 
-    concatenate: function(): DynaWrapped<string> {
-        throw Error("DynaString substring-only policy unexpectedly used concatenate");
+    concatenate: function(left: DynaWrapped<string>, right: DynaWrapped<string>): DynaWrapped<string> {
+        let leftRaw = String(this.peek(left));
+        let rightRaw = String(this.peek(right));
+        let leftChars = left.info.chars || Array(leftRaw.length).fill(left.info.bit);
+        let rightChars = right.info.chars || Array(rightRaw.length).fill(right.info.bit);
+        let chars = leftChars.concat(rightChars);
+
+        return wrap(leftRaw + rightRaw, {
+            bit: allCharsTainted(chars),
+            chars,
+        });
     },
 };
 
-function infoToTaintEntry(s: State, resultValue: string, info: DynaTaintInfo, paths: PathNode[]): taintEntry {
-    let chars = info.chars !== undefined
-        ? info.chars.slice(0, resultValue.length)
-        : Array(resultValue.length).fill(info.bit);
+function infoToTaintEntry(s: State, resultValue: any, info: DynaTaintInfo, paths: PathNode[], label: string): taintEntry {
+    if (!F.isString(resultValue)) {
+        return {
+            taintBit: info.bit,
+            map: initPropMap(resultValue, info.bit),
+            path: newPathNode(label, paths, resultValue, getTc(s)),
+        };
+    }
 
-    while (chars.length < resultValue.length) {
+    let resultString = String(resultValue);
+    let chars = info.chars !== undefined
+        ? info.chars.slice(0, resultString.length)
+        : Array(resultString.length).fill(info.bit);
+
+    while (chars.length < resultString.length) {
         chars.push(false);
     }
 
-    let propMap = new PropMap(resultValue);
-    for (let i = 0; i < resultValue.length; i++) {
+    let propMap = new PropMap(resultString);
+    for (let i = 0; i < resultString.length; i++) {
         propMap = propMap.set(i.toString(), chars[i] === true) as PropMap;
     }
     if (anyCharTainted(chars)) {
@@ -164,14 +201,105 @@ function infoToTaintEntry(s: State, resultValue: string, info: DynaTaintInfo, pa
     return {
         taintBit: allCharsTainted(chars),
         map: F.Just(propMap),
-        path: newPathNode('dynajs:string.substring', paths, resultValue, getTc(s)),
+        path: newPathNode(label, paths, resultString, getTc(s)),
     };
 }
 
-export function isDynajsSubstringResult(s: State, result: Wrapped): boolean {
+function anyInfoTainted(info: DynaTaintInfo): boolean {
+    return info.bit || (info.chars !== undefined && anyCharTainted(info.chars));
+}
+
+function allInfoTainted(info: DynaTaintInfo): boolean {
+    if (info.chars !== undefined) {
+        return allCharsTainted(info.chars);
+    }
+    return info.bit;
+}
+
+function resultArrayTaint(
+    s: State,
+    value: any[],
+    elements: DynaWrapped[],
+    paths: PathNode[],
+    label: string,
+    arrayPrecision: string,
+): [taintEntry, taintEntry[]] {
+    let elementTaints = elements.map((element) =>
+        infoToTaintEntry(s, specOps.peek(element), element.info, paths, label)
+    );
+    let tainted = arrayPrecision == 'imprecise'
+        ? elements.some((element) => anyInfoTainted(element.info))
+        : elements.length > 0 && elements.every((element) => allInfoTainted(element.info));
+    return [{
+        taintBit: tainted,
+        map: initPropMap(value, tainted),
+        path: newPathNode(label, paths, value, getTc(s)),
+    }, elementTaints];
+}
+
+const DYNA_STRING_METHODS: DynaStringMethodSpec[] = [
+    {
+        name: 'at',
+        native: String.prototype.at,
+        invoke: (model, base, args) => model.at(base, args[0] || wrap(undefined, { bit: false })),
+    },
+    {
+        name: 'charAt',
+        native: String.prototype.charAt,
+        invoke: (model, base, args) => model.charAt(base, args[0] || wrap(undefined, { bit: false })),
+    },
+    {
+        name: 'slice',
+        native: String.prototype.slice,
+        invoke: (model, base, args) => model.slice(base, args[0] || wrap(undefined, { bit: false }), args[1]),
+    },
+    {
+        name: 'substring',
+        native: String.prototype.substring,
+        invoke: (model, base, args) => model.substring(base, args[0] || wrap(undefined, { bit: false }), args[1]),
+    },
+    {
+        name: 'repeat',
+        native: String.prototype.repeat,
+        invoke: (model, base, args) => model.repeat(base, args[0] || wrap(undefined, { bit: false })),
+    },
+    {
+        name: 'replace',
+        native: String.prototype.replace,
+        invoke: (model, base, args) => model.replace(
+            base,
+            args[0] || wrap(undefined, { bit: false }),
+            args[1] || wrap(undefined, { bit: false }),
+        ),
+    },
+    {
+        name: 'concat',
+        native: String.prototype.concat,
+        invoke: (model, base, args) => model.concat(base, ...args),
+    },
+    {
+        name: 'split',
+        native: String.prototype.split,
+        invoke: (model, base, args) => model.split(
+            base,
+            args.length >= 1 ? args[0] : undefined,
+            args[1] || wrap(undefined, { bit: false }),
+        ),
+    },
+];
+
+function getDynaStringMethod(f: NativeFunction): DynaStringMethodSpec | undefined {
+    return DYNA_STRING_METHODS.find((method) => method.native === f);
+}
+
+export function isDynaStringMethod(f: Function): boolean {
+    return getDynaStringMethod(f as NativeFunction) !== undefined;
+}
+
+export function isDynajsStringResult(s: State, result: Wrapped): boolean {
     let id: Object | ID = F.eitherThrow(oid(s, result));
     return F.matchMaybe(s.Mt.get(id), {
-        Just: (entry: taintEntry): boolean => entry.path.label == 'dynajs:string.substring',
+        Just: (entry: taintEntry): boolean => entry.path.label.indexOf('dynajs:string.') == 0,
         Nothing: (): boolean => false,
     });
 }
@@ -179,44 +307,77 @@ export function isDynajsSubstringResult(s: State, result: Wrapped): boolean {
 export function installDynajsStringResult(
     s: State,
     result: Wrapped,
-    modeledResult: DynaStringResult,
+    modeledResult: DynaStringCallResult,
 ): State {
     let resultId: Object | ID = F.eitherThrow(oid(s, result));
-    return setMt(s, s.Mt.set(resultId, modeledResult.taint));
+    let stateP = setMt(s, s.Mt.set(resultId, modeledResult.taint));
+    let resultValue = getValue(stateP, result);
+
+    if (Array.isArray(resultValue) && modeledResult.elementTaints !== undefined) {
+        let MtP = stateP.Mt;
+        for (let i = 0; i < resultValue.length && i < modeledResult.elementTaints.length; i++) {
+            let elementId: Object | ID = F.eitherThrow(oid(stateP, resultValue[i]));
+            MtP = MtP.set(elementId, modeledResult.elementTaints[i]);
+        }
+        stateP = setMt(stateP, MtP);
+    }
+
+    return stateP;
 }
 
-export function produceDynajsSubstringResult(
+export function produceDynajsStringResult(
     s: State,
     f: NativeFunction,
     base: Wrapped,
     args: Wrapped[],
-): DynaStringResult {
-    F.assert(f === String.prototype.substring, "DynaString policy only supports String.prototype.substring");
-    F.assert(args.length == 1 || args.length == 2, "String.prototype.substring expects one or two args");
+    options: DynaStringOptions,
+): DynaStringCallResult {
+    let method = getDynaStringMethod(f);
+    F.assert(method !== undefined, "DynaString policy only supports DynaJS StringModel methods");
 
     let rawBase = String(getValue(s, base));
     let baseTaint = F.eitherThrow(getTaintEntry(s, base));
     let argTaints: taintEntry[] = [];
     let parentPaths: PathNode[] = [baseTaint.path];
+    let wrappedArgs: DynaWrapped[] = [];
 
     for (let i = 0; i < args.length; i++) {
+        let rawArg = getValue(s, args[i]);
         let argTaint = F.eitherThrow(getTaintEntry(s, args[i]));
         argTaints.push(argTaint);
         parentPaths.push(argTaint.path);
+        wrappedArgs.push(wrap(rawArg, valueToInfo(rawArg, argTaint)));
     }
 
     let wBase = wrap(rawBase, taintEntryToInfo(rawBase, baseTaint));
-    let wStart = wrap(getValue(s, args[0]), { bit: argTaints[0].taintBit });
-    let wEnd = args.length == 2
-        ? wrap(getValue(s, args[1]), { bit: argTaints[1].taintBit })
-        : undefined;
 
     let model = new StringModel(specOps);
-    let dynResult = model.substring(wBase, wStart, wEnd);
+    let dynResult = method.invoke(model, wBase, wrappedArgs);
+    let label = `dynajs:string.${method.name}`;
+
+    if (Array.isArray(dynResult)) {
+        let values = dynResult.map((element) => specOps.peek(element));
+        let [taint, elementTaints] = resultArrayTaint(
+            s,
+            values,
+            dynResult,
+            parentPaths,
+            label,
+            options.arrayPrecision,
+        );
+        return {
+            methodName: method.name,
+            value: values,
+            taint,
+            elementTaints,
+        };
+    }
+
     let dynValue = specOps.peek(dynResult);
 
     return {
+        methodName: method.name,
         value: dynValue,
-        taint: infoToTaintEntry(s, dynValue, dynResult.info, parentPaths),
+        taint: infoToTaintEntry(s, dynValue, dynResult.info, parentPaths, label),
     };
 }

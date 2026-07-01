@@ -216,20 +216,40 @@ function getCallInfo(iid: number, f: any) {
     };
 }
 
+// Set NM_DEBUG_LOC=1 in the container to dump the raw idToLoc output so we can
+// confirm DynaJS's location format and tighten the parser below.
+const NM_DEBUG_LOC = (typeof process !== 'undefined') && process.env && process.env.NM_DEBUG_LOC === '1';
+
 function sourceLocation(iid: number): string {
     const sid = getScriptSid();
     const scriptName = smap[sid]?.originalCodeFileName || 'UNKNOWN';
     let raw = '';
     try {
         raw = String(D$.idToLoc(iid));
-    } catch {
+    } catch (err) {
+        if (NM_DEBUG_LOC) console.error(`[NM_DEBUG_LOC] idToLoc(${iid}) threw: ${err}`);
         return `(${scriptName}:-1:-1:-1:-1)`;
     }
-    const m = /^(\d+):(\d+)-(\d+):(\d+)$/.exec(raw);
-    if (!m) {
-        return `(${scriptName}:-1:-1:-1:-1)`;
+    if (NM_DEBUG_LOC) { try { require('fs').appendFileSync('/tmp/nm_idtoloc', `${JSON.stringify(raw)}\n`); } catch (_) {} }
+
+    // DynaJS's idToLoc returns "LINE:STARTCOL-ENDCOL" on a single line, e.g.
+    // "101:21-44".  (Confirmed empirically: ~98% of calls return this form.)
+    const single = /^(\d+):(\d+)-(\d+)$/.exec(raw);
+    if (single) {
+        // line, startCol, endCol -> (script:line:startCol:line:endCol)
+        return `(${scriptName}:${single[1]}:${single[2]}:${single[1]}:${single[3]})`;
     }
-    return `(${scriptName}:${m[1]}:${m[2]}:${m[3]}:${m[4]})`;
+    // Also accept multi-line forms if DynaJS ever emits them.
+    const multi = /^(\d+):(\d+)-(\d+):(\d+)$/.exec(raw)   // L:C-L:C
+               || /^(\d+):(\d+):(\d+):(\d+)$/.exec(raw);  // L:C:L:C
+    if (multi) {
+        return `(${scriptName}:${multi[1]}:${multi[2]}:${multi[3]}:${multi[4]})`;
+    }
+    const point = /^(\d+):(\d+)$/.exec(raw);
+    if (point) {
+        return `(${scriptName}:${point[1]}:${point[2]}:${point[1]}:${point[2]})`;
+    }
+    return `(${scriptName}:-1:-1:-1:-1)`;
 }
 
 function getBranchInfo() {
@@ -300,35 +320,27 @@ D$.analysis = {
         calleeSidStack.push(functionSid as number | undefined);
         pendingInvokeArgsStack.push(Array.from(args));
 
-        let ret;
-        try {
-            ret = instrumentation.invokeFunPre(
-                f,
-                normalizedBase,
-                args,
-                isMethod,
-                isConstructor,
-                isExternal,
-                uniqueID,
-                originalScriptPath,
-                sourceLocation(iid)
-            );
-        } catch (err) {
-            isExternalStack.pop();
-            calleeSidStack.pop();
-            pendingInvokeArgsStack.pop();
-            throw err;
-        }
+        const ret = instrumentation.invokeFunPre(
+            f,
+            normalizedBase,
+            args,
+            isMethod,
+            isConstructor,
+            isExternal,
+            uniqueID,
+            originalScriptPath,
+            sourceLocation(iid)
+        );
 
         if (ret.reset_branches) {
             instrumentation.trace_prop.branches = [];
             instrumentation.trace_prop.code_coverage = 0;
         }
 
-        return { f: ret.f, base: ret.base, args: ret.args, skip: ret.skip === true };
+        return { f: ret.f, base: ret.base, args: ret.args, skip: false };
     },
 
-    invokeFun(iid: number, f: any, base: any, args: any, result: any, isConstructor: boolean, isMethod: boolean) {
+    invokeFun(iid: number, f: any, base: any, args: any, result: any, isConstructor: boolean, isMethod: boolean, _frame?: unknown) {
         // If f is not a function, invokeFunPre returned early without pushing to
         // isExternalStack.  DynaJS does not call invokeFun after a thrown concrete
         // call, so this guard is defensive — but it prevents F.isNativeFunction from
@@ -446,12 +458,12 @@ D$.analysis = {
         return { result: val };
     },
 
-    getFieldPre(_iid: number, base: any, prop: any) {
+    getFieldPre(_iid: number, base: any, prop: any, _isPrivate?: boolean) {
         const ret = instrumentation.getFieldPre(base, prop);
         return { base: ret.base, prop: ret.offset, skip: false };
     },
 
-    getField(iid: number, base: any, prop: any, val: any) {
+    getField(iid: number, base: any, prop: any, val: any, _isPrivate?: boolean, _frame?: unknown) {
         const ret = instrumentation.getField(base, prop, val, sourceLocation(iid));
         // Symbol primitives wrapped in a SafeProxy can't be used as property keys in
         // native JS code (e.g. yield* protocol internals) — SafeProxy creates
@@ -467,12 +479,12 @@ D$.analysis = {
         return { result: ret.result };
     },
 
-    putFieldPre(_iid: number, base: any, prop: any, val: any) {
+    putFieldPre(_iid: number, base: any, prop: any, val: any, _isPrivate?: boolean) {
         const ret = instrumentation.putFieldPre(base, prop, val);
         return { base: ret.base, prop: ret.offset, value: ret.value, skip: false };
     },
 
-    putField(iid: number, base: any, prop: any, val: any) {
+    putField(iid: number, base: any, prop: any, val: any, _isPrivate?: boolean, _frame?: unknown) {
         const ret = instrumentation.putField(base, prop, val, sourceLocation(iid));
         return { result: ret.val };
     },
@@ -660,7 +672,7 @@ D$.analysis = {
         instrumentation.putField(thisVal, prop, val, sourceLocation(iid));
     },
 
-    functionEnter(_iid: number, f: any, _dis: any, _args: any) {
+    functionEnter(_iid: number, f: any, _dis: any, _args: any, _isAsync?: boolean, _isGenerator?: boolean) {
         // Mirrors Jalangi's updateSid(f): switch ownerSid to the function's
         // defining module so that require() calls inside resolve correctly.
         //
@@ -696,7 +708,7 @@ D$.analysis = {
         instrumentation.functionEnter(f);
     },
 
-    functionExit(_iid: number, _returnVal: any, wrappedExceptionVal?: { exception: any }) {
+    functionExit(_iid: number, _returnVal: any, wrappedExceptionVal?: { exception: any }, _isAsync?: boolean, _isGenerator?: boolean) {
         popOwnerSid();
         currentFunctionArgsStack.pop();
         const threwException = wrappedExceptionVal !== undefined;
@@ -726,7 +738,7 @@ D$.analysis = {
         return { op: op, left: ret.left, right: ret.right, skip: false };
     },
 
-    binary(iid: number, op: string, left: any, right: any, result: any) {
+    binary(iid: number, op: string, left: any, right: any, result: any, _frame?: unknown) {
         const ret = instrumentation.binary(op, left, right, result, sourceLocation(iid));
         return { result: ret.result };
     },
@@ -752,7 +764,7 @@ D$.analysis = {
         return { op: op, operand: ret.left, skip: false };
     },
 
-    unary(iid: number, op: string, _prefix: boolean, operand: any, result: any) {
+    unary(iid: number, op: string, _prefix: boolean, operand: any, result: any, _frame?: unknown) {
         if (op === '++' || op === '--') {
             return { result };
         }

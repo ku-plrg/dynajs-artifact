@@ -1,4 +1,4 @@
-TSC=tsc
+TSC=npx tsc
 TSC_FLAGS=-b
 
 NODE=node
@@ -23,11 +23,7 @@ TIMING_CMD=hyperfine -i -u second --warmup 3 --export-csv
 
 .PHONY: js.stub
 
-dynajs-model.stub: scripts/build-dynajs-model-cjs.mjs lib/dynajs/src/model/string.ts
-	$(NODE) scripts/build-dynajs-model-cjs.mjs
-	@touch $@
-
-js.stub: dynajs-model.stub
+js.stub:
 	$(TSC) $(TSC_FLAGS)
 	@touch $@
 
@@ -63,19 +59,19 @@ analyze_with_blank: js.stub
 	$(NODE) $(NODE_FLAGS) $(JALANGI_CMD) ${BLANK_ANALYSIS} ${FILE}
 
 jalangi_tests: js.stub
-	tsc -b tests/unit_jalangi/tests/
+	npx tsc -b tests/unit_jalangi/tests/
 	UNIT_TEST_TIMEOUT_MS="$(UNIT_TEST_TIMEOUT_MS)" $(NODE) $(NODE_FLAGS) tests/unit_jalangi/run_unit.js
 
 run_one_test: js.stub
-	tsc -b tests/unit_jalangi/tests/
+	npx tsc -b tests/unit_jalangi/tests/
 	$(NODE) $(NODE_FLAGS) $(JALANGI_CMD) ${ANALYSIS_FILE} tests/unit_jalangi/tests/_build/unit_jalangi/tests/${TEST}.js $(ARGS_TEST)
 
 run_one_test_dyna: js.stub
-	tsc -b tests/unit_jalangi/tests/
+	npx tsc -b tests/unit_jalangi/tests/
 	DYNAJS_HOME="$(DYNAJS_HOME)" DYNAJS_OPTIONS="$(DYNAJS_OPTIONS_BASE) --analysis $(DYNAJS_JALANGI_ANALYSIS_FILE)" NODEMEDIC_ANALYSIS_ARGS="$(ARGS_TEST)" $(DYNAJS_BIN) $(NODE) $(NODE_FLAGS) tests/unit_jalangi/tests/_build/unit_jalangi/tests/${TEST}.js
 
 run_one_test_debug: js.stub
-	tsc -b tests/unit_jalangi/tests/
+	npx tsc -b tests/unit_jalangi/tests/
 	$(NODE) $(NODE_DEBUG_FLAGS) $(JALANGI_CMD) ${ANALYSIS_FILE} tests/unit_jalangi/tests/_build/unit_jalangi/tests/${TEST}.js $(ARGS_TEST)
 
 clean:

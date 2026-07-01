@@ -5,7 +5,7 @@ import { __jalangi_assert_taint_true__, __jalangi_assert_taint_false__,
     __assert_string_range_all_untainted__,
     __assert_array_range_all_tainted__,
     __assert_array_range_all_untainted__} from "../../taint_header";
-import { test_suite, test_one } from "../../test_header";
+import { test_suite, test_one, test_assert } from "../../test_header";
 
 
 test_suite("---------- String Taint Propagation Test --------", function() {
@@ -210,6 +210,13 @@ test_suite("---------- Testing str.substring() -------- ", function () {
     let e = a.substring(-4, 500); // "Hello, World!"
     let f = a.substring(undefined, NaN); // ""
     let g = a.substring(NaN, 2); // "He"
+
+    test_one("substring concrete values should match native ECMAScript results", function () {
+        test_assert(
+            b === "lo," && c === "lo, World!" && d === "lo,"
+                && e === "Hello, World!" && f === "" && g === "He"
+        );
+    });
 
     test_one("'lo' should be tainted", function () {
         __assert_string_range_all_tainted__(b, 0, tainted.length);

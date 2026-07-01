@@ -2,9 +2,13 @@ import * as graphviz from 'graphviz';
 import { Maybe, F } from './Flib';
 import { inspect } from './Trace';
 import { taintEntry, TextualContext } from './State';
-import { copyFile, writeFileSync } from 'fs';
+import { appendFileSync, copyFile, writeFileSync } from 'fs';
+import { createHash } from 'crypto';
 import * as cloneDeep from 'lodash.clonedeep';
 
+const FLOW_FINGERPRINT_PATH: string = (typeof process !== 'undefined' && process.env && process.env.NODEMEDIC_FP_PATH)
+    ? process.env.NODEMEDIC_FP_PATH
+    : 'flow_fingerprints.jsonl';
 
 // Generate taint flow paths
 let TAINTPATHS: boolean = false;
@@ -317,9 +321,51 @@ export function circularReplacer() {
     }
 }
 
+function flowFingerprint(pn: PathNode): { fp: string, sink: string, ops: number, sites: number } {
+    const ops: string[] = [];
+    const sites = new Set<string>();
+    let sink = '';
+    const seen = new Set<PathNode>();
+
+    const visit = (node: PathNode) => {
+        if (!node || seen.has(node)) return;
+        seen.add(node);
+        ops.push(node.label);
+        if (node.sinkType) sink = node.sinkType;
+        const tc = node.textualContext;
+        if (tc && tc.startLineNumber !== -1 && tc.startLineNumber != null) {
+            sites.add(`${tc.scriptName}:${tc.startLineNumber}:${tc.startColumnNumber}`);
+        }
+        node.parents.forEach(visit);
+    };
+
+    visit(pn);
+    const sig = `${sink}|${ops.slice().sort().join(',')}|${Array.from(sites).sort().join(',')}`;
+    return { fp: createHash('sha1').update(sig).digest('hex').slice(0, 12), sink, ops: ops.length, sites: sites.size };
+}
+
+function recordFlowTelemetry(pn: PathNode) {
+    try {
+        const g = globalThis as any;
+        const ts = Date.now();
+        if (g.__nm_first_flow_ms__ == null) g.__nm_first_flow_ms__ = ts;
+        const f = flowFingerprint(pn);
+        appendFileSync(
+            FLOW_FINGERPRINT_PATH,
+            JSON.stringify({ ts, fp: f.fp, sink: f.sink, ops: f.ops, sites: f.sites, tainted: pn.tainted }) + '\n'
+        );
+    } catch (_) {
+        // Telemetry is best-effort and must not change taint-analysis behavior.
+    }
+}
+
 export function describePath(pn: PathNode, filename?: string) {
     if (filename !== undefined && filename.startsWith("none")){
         return;
+    }
+
+    if (pn) {
+        recordFlowTelemetry(pn);
     }
     
     if (TAINTPATHS) {

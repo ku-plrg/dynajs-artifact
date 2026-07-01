@@ -1,3 +1,5 @@
+// JALANGI DO NOT INSTRUMENT
+// DYNAJS DO NOT INSTRUMENT
 const h = require('hasard');
 
 const randomValue = h.value();
@@ -27,3 +29,5 @@ randomValue.set({
 });
  
 console.log(randomObject.run(1000));
+// JALANGI DO NOT INSTRUMENT
+// DYNAJS DO NOT INSTRUMENT

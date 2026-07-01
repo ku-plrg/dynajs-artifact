@@ -17,6 +17,8 @@ export const ghostFunctionNames = [
     '__string_range_clear_taint__', '__assert_array_range_all_tainted__',
     '__assert_array_range_all_untainted__', '__jalangi_set_sink__',
     '__jalangi_check_taint_string__',
+    /* for dynajs microbench */
+    '__set_taint__', '__assert_taint__',
 ];
 
 const registeredGhostFunctions = new Map();
@@ -50,6 +52,8 @@ export function globalizeGhostFunctions() {
     ghostFunctionNames.forEach(funcName => {
         globalizeFunction(funcName);
     });
+    /* Unlike the other ghosts (no-op stubs whose only effect is the analysis-side */
+    global['__set_taint__'] = function __set_taint__(v) { return v; };
 }
 
 /** Calls the corresponding Taint layer and returns the new state.
@@ -74,6 +78,12 @@ export function dispatchGhostFunction(s: State, name: string, args: Array<any>, 
          * __jalangi_set_taint__(x: any)
          */
         case '__jalangi_set_taint__': {
+            let s2 = F.eitherThrow(TSet(s, args[0], true));
+            return s2;
+        }
+
+        /* for dynajs microbench */
+        case '__set_taint__': {
             let s2 = F.eitherThrow(TSet(s, args[0], true));
             return s2;
         }
@@ -152,6 +162,14 @@ export function dispatchGhostFunction(s: State, name: string, args: Array<any>, 
             if (c.ASSERTPASSED) {
                 throw Error("Completed execution");
             }
+            return s;
+        }
+
+        /* for dynajs microbench */
+        case '__assert_taint__': {
+            let actual = F.eitherThrow(TGetTaintAll(s, args[0])) ? "detected" : "clean";
+            let expected = getValue(s, args[1]) ? "detected" : "clean";
+            console.log(`@@DJX_VERDICT ${actual} ${expected}`);
             return s;
         }
 

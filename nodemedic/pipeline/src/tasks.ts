@@ -350,6 +350,7 @@ export function buildPipeline(logger): Pipeline {
                 const analysisTimeBudget: number = context.getProperty('analysisTimeBudget');
                 const fuzzer_prng: number = context.getProperty('fuzzer_prng');
                 const useDynajs: boolean = context.getProperty('dynajs');
+                const useDynajsEngine: boolean = context.getProperty('dynajsEngine');
 
                 logger.debug(`[Step][${this.name()}]: Setup instrumented package driver`);
                 const startTime = hrtime.bigint();
@@ -360,7 +361,7 @@ export function buildPipeline(logger): Pipeline {
                 const templatePath = result.unwrap() as Path;
                 logger.debug(`[Step][${this.name()}]: Run instrumented package driver`);
                 const result2: Result<Path, BaseError> = await runAnalysis(
-                    templatePath, policies, failOnOutputError, failOnNonZeroExit, context, analysisTimeBudget, useDynajs
+                    templatePath, policies, failOnOutputError, failOnNonZeroExit, context, analysisTimeBudget, useDynajs, useDynajsEngine
                 );
                 if (result2.isFailure()) {
                     return abortTaskWithError(context, this, thePackage, result2.unwrap() as BaseError, startTime);
@@ -382,13 +383,14 @@ export function buildPipeline(logger): Pipeline {
                 const useHoneyObjects: boolean = context.getProperty('honeyobjects');
                 const policies: string = context.getProperty('policies');
                 const useDynajs: boolean = context.getProperty('dynajs');
+                const useDynajsEngine: boolean = context.getProperty('dynajsEngine');
                 const packageSafeName: string = getSafeNameFromPackageName(thePackage.name());
                 const packageOutputDir: Path = context.getProperty('outputDir').extend([packageSafeName]);
 
                 const startTime = hrtime.bigint();
                 thePackage.setEntryPoint(flowToProcess);
 
-                const result: Result<Path, BaseError> = await run2ndStageDriver(thePackage, context, packageOutputDir, flowToProcess, useHoneyObjects, policies, useDynajs);
+                const result: Result<Path, BaseError> = await run2ndStageDriver(thePackage, context, packageOutputDir, flowToProcess, useHoneyObjects, policies, useDynajs, useDynajsEngine);
                 if (result.isFailure()) {
                     return abortTaskWithError(context, this, thePackage, result.unwrap() as BaseError, startTime);
                 }

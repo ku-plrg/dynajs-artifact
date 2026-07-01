@@ -86,7 +86,8 @@ async function runPipeline(
     timeBudget: number,
     analysisTimeBudget: number,
     fuzzer_prng: number,
-    dynajs: boolean
+    dynajs: boolean,
+    dynajsEngine: boolean
 ) {
     logger.info(`Gathering ${targetCount} packages with a ${bound} bound of ${downloadCount} downloads`);
 
@@ -161,7 +162,8 @@ async function runPipeline(
         'timeBudget': timeBudget,
         'analysisTimeBudget': analysisTimeBudget,
         'fuzzer_prng': fuzzer_prng,
-        'dynajs': dynajs
+        'dynajs': dynajs,
+        'dynajsEngine': dynajsEngine
     });
     // Set the task list
     let taskList: Array<string> = undefined; // Run all tasks in full mode
@@ -281,6 +283,7 @@ async function main() {
         .option('--analysis-time-budget <int>', 'Time budget in seconds for analysis')
         .option('--time-budget <int>', 'Time budget in seconds for the whole process for a single package, including analysis and confirmation')
         .option('--dynajs', 'Use Dynajs for instrumentation instead of Jalangi')
+        .option('--dynajs-engine', 'Use the new DynaJS FlowAnalysis engine instead of the legacy DynaJS analysis')
         .action(async function (
             targetCountStr: string,
             boundStr: string,
@@ -548,6 +551,11 @@ async function main() {
                 dynajs = true;
             }
             logger.debug(`Use Dynajs for instrumentation instead of Jalangi?: ${dynajs}`);
+            let dynajsEngine = false;
+            if (options.dynajsEngine !== undefined) {
+                dynajsEngine = true;
+            }
+            logger.debug(`Use new DynaJS FlowAnalysis engine?: ${dynajsEngine}`);
             // Global error handler
             process.on(
                 'uncaughtException',
@@ -606,7 +614,8 @@ async function main() {
                 timeBudget,
                 analysisTimeBudget,
                 fuzzer_prng,
-                dynajs
+                dynajs,
+                dynajsEngine
             )
             logger.info('Done with analysis');
         });

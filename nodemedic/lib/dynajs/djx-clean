@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -eu
+
+target_dir=${1:-$(pwd)}
+
+if [ ! -d "$target_dir" ]; then
+  echo "error: target is not a directory: $target_dir" >&2
+  exit 1
+fi
+
+if ! git -C "$target_dir" rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "error: target is not under a git-managed directory: $target_dir" >&2
+  exit 1
+fi
+
+# NOTE - `dynajs-stats-json` files are not generated anymore, but we keep this for backward compatibility.
+find "$target_dir" -type f \
+  \( -name '*__dynajs__.js' -o -name '*__dynajs__.dynajs-stats-json' -o -name '*_jalangi_babel_.js' -o -name '.dynajs-vm-*.js' -o -name '*_jalangi_.js' \) \
+  -exec rm -f {} +
+
+rm -rf "$target_dir/.dynajs"

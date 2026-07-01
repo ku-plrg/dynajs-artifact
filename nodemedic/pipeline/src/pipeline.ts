@@ -139,6 +139,16 @@ export class Pipeline {
                         count++;
                         continue;
                     }
+                    if (context.getProperty('convertPotentialToString') && context.getProperty('secondStageMode') == 'converted'
+                        && ['trivialExploit', 'checkExploit', 'smt'].includes(taskName)
+                        && [TaskStatus.Abort, TaskStatus.Started, TaskStatus.NotRun].includes(status)) {
+                        this._logger.debug(`Converted-mode ${taskName} failed; retrying current tainted flow in normal mode`);
+                        context.setProperty('secondStageMode', 'normal');
+                        context.setProperty('retryCurrentFlow', false);
+                        taskPtr = setSinkTypePtr;
+                        count++;
+                        continue;
+                    }
                     thePackage.saveCurFlow(); // Save the current flow result in thePackage
                     // If stop the pipeline after the 1st tanited flow is successfully exploited: exit
                     if(context.getProperty("successfulExploits") > 0 && context.getProperty("stopOn1stExploited")){

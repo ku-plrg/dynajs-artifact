@@ -1,0 +1,75 @@
+{
+  "name": "dynajs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "dynajs": "./dynajs",
+    "djx": "./djx"
+  },
+  "scripts": {
+    "copy": "node ./scripts/copy-polyfill.mjs",
+    "clean": "npm-run-all clean:analyses clean:dynajs",
+    "clean:analyses": "rimraf ./analyses/dist",
+    "clean:dynajs": "rimraf ./dist ./tsconfig.tsbuildinfo",
+    "build": "run-p typecheck typecheck:analyses typecheck:samples build:entry build:analysis",
+    "typecheck": "tsc -b",
+    "typecheck:analyses": "tsc -p ./analyses/tsconfig.json",
+    "typecheck:samples": "tsc -p ./samples/tsconfig.json",
+    "typecheck:full": "node ./scripts/typecheck-full.mjs",
+    "build:analysis": "node ./scripts/build-analysis.mjs",
+    "build:entry": "node ./scripts/build-entry.mjs",
+    "build:watch": "tsc -b -w",
+    "sunspider": "npm run build && ./bench/run-sunspider-benchmark.sh",
+    "microbench": "npm run build && node ./bench/run-micro-benchmark.mjs",
+    "microbench:done": "npm run build && node ./bench/run-micro-benchmark.mjs --done",
+    "microbench:check": "npm run build && node ./bench/run-micro-benchmark.mjs --check",
+    "microbench:snapshot": "npm run build && node ./bench/run-micro-benchmark.mjs --update-snapshot",
+    "microbench:count": "node ./bench/run-micro-benchmark.mjs --count",
+    "microbench:count:done": "node ./bench/run-micro-benchmark.mjs --count --done",
+    "microbench:done:coverage": "node ./bench/run-micro-benchmark.mjs --coverage",
+    "microbench:lint": "node ./bench/run-micro-benchmark.mjs --lint",
+    "microbench:stat": "node ./bench/micro-composition.mjs",
+    "format": "prettier --write . | grep -v '(unchanged)$'",
+    "loc": "node ./scripts/loc.mjs",
+    "spec-coverage": "node ./scripts/spec-coverage.mjs",
+    "test": "",
+    "test:watch": "",
+    "test:taint": "npm run build && node ./scripts/run-taint-tests.mjs",
+    "test:concolic": "npm run build && node ./scripts/run-concolic-tests.mjs",
+    "test262:extract": "npm run build && node ./bench/test262/extract.cjs",
+    "test262:run": "npm run build && node ./bench/test262/run.cjs",
+    "test262:run-node": "npm run build && npm run test262:run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ku-plrg/dynajs.git"
+  },
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/ku-plrg/dynajs/issues"
+  },
+  "homepage": "https://github.com/ku-plrg/dynajs#readme",
+  "devDependencies": {
+    "@types/estree": "^1.0.8",
+    "@types/node": "^24.10.1",
+    "@types/object-inspect": "^1.13.0",
+    "@types/yargs": "^17.0.35",
+    "esbuild": "^0.27.4",
+    "nodemon": "^3.1.11",
+    "npm-run-all": "^4.1.5",
+    "rimraf": "^6.1.2",
+    "ts-node": "^10.9.2",
+    "type-fest": "^5.7.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "acorn": "^8.15.0",
+    "acorn-walk": "^8.3.4",
+    "astring": "^1.9.0",
+    "chalk": "^5.6.2",
+    "dedent-js": "^1.0.1",
+    "yargs": "^17.7.2"
+  }
+}

@@ -509,12 +509,30 @@ function buildInstrumentationProcess(
     analysisArgs: string[],
     timeoutLen: number,
     useDynajs: boolean,
+    useDynajsEngine: boolean,
+    packageRoot?: Path,
 ): { backend: string, process: AsyncProcess } {
+    const fpPath: Path = templatePath.dir().extend(['flow_fingerprints.jsonl']);
     if (useDynajs) {
         const dynajs = getDynajsPaths();
-        const analysisPath: Path = Path.relParentDir(['../src/rewrite_dynajs.js']);
+        // Engine selection (migration Phase 6): the legacy hand-rolled engine
+        // (src/rewrite_dynajs.js) stays the default. Pass --dynajs-engine to run
+        // the new FlowAnalysis subclass (src/vendor/NodeMedicAnalysis.mjs).
+        // The new engine needs `--pos persist` for source locations and
+        // `abort_on_flow=true` so its FlowError aborts like the legacy engine.
+        // NOTE: keep this behind an explicit flag until differential parity holds
+        // for the benchmark set; DynaJS model coverage is still evolving.
+        const analysisPath: Path = useDynajsEngine
+            ? Path.relParentDir(['../src/vendor/NodeMedicAnalysis.mjs'])
+            : Path.relParentDir(['../src/rewrite_dynajs.js']);
+        const dynajsOptions = useDynajsEngine
+            ? `--analysis ${analysisPath.toString()} --pos persist${packageRoot ? ` --include ${packageRoot.toString()}` : ''}`
+            : `--analysis ${analysisPath.toString()}`;
+        const engineArgs = useDynajsEngine
+            ? [...analysisArgs, 'abort_on_flow=true']
+            : analysisArgs;
         return {
-            backend: 'DynaJS',
+            backend: useDynajsEngine ? 'DynaJS/NodeMedicAnalysis' : 'DynaJS',
             process: new AsyncProcess(
                 dynajs.bin.toString(),
                 ['node', templatePath.toString()],
@@ -523,8 +541,9 @@ function buildInstrumentationProcess(
                     env: {
                         ...process.env,
                         DYNAJS_HOME: dynajs.home.toString(),
-                        DYNAJS_OPTIONS: `--analysis ${analysisPath.toString()}`,
-                        NODEMEDIC_ANALYSIS_ARGS: JSON.stringify(analysisArgs),
+                        DYNAJS_OPTIONS: dynajsOptions,
+                        NODEMEDIC_ANALYSIS_ARGS: JSON.stringify(engineArgs),
+                        NODEMEDIC_FP_PATH: fpPath.toString(),
                     },
                 }
             ),
@@ -547,6 +566,12 @@ function buildInstrumentationProcess(
                 ...analysisArgs,
             ],
             timeoutLen,
+            {
+                env: {
+                    ...process.env,
+                    NODEMEDIC_FP_PATH: fpPath.toString(),
+                },
+            },
         ),
     };
 }
@@ -558,7 +583,8 @@ export async function runAnalysis(
     failOnNonZeroExit: boolean,
     context: Context,
     analysisTimeBudget: number,
-    useDynajs: boolean
+    useDynajs: boolean,
+    useDynajsEngine: boolean
 ): Promise<Result<Path, BaseError>> {
     const timeoutLen = (analysisTimeBudget + 20) * 1000;
     const analysisArgs = [
@@ -574,7 +600,14 @@ export async function runAnalysis(
     const packageSafeName: string = getSafeNameFromPackageName(context.getProperty('thePackage').name());
     const packageOutputDir: Path = context.getProperty('outputDir').extend([packageSafeName]);
     
-    const instrumentationRun = buildInstrumentationProcess(templatePath, analysisArgs, timeoutLen, useDynajs);
+    const instrumentationRun = buildInstrumentationProcess(
+        templatePath,
+        analysisArgs,
+        timeoutLen,
+        useDynajs,
+        useDynajsEngine,
+        context.getProperty('thePackage').path(),
+    );
     const analysisProc = instrumentationRun.process;
     logger.debug(`Running ${instrumentationRun.backend} analysis: ${analysisProc.cmd()} ${analysisProc.args().join(" ")}`);
     try {
@@ -652,6 +685,7 @@ export async function run2ndStageDriver(
     useHoneyObjects: boolean,
     policies: string,
     useDynajs: boolean,
+    useDynajsEngine: boolean,
 ): Promise<Result<Path, BaseError>> {
 
     // Runs 2nd driver against a specific flow
@@ -699,6 +733,15 @@ export async function run2ndStageDriver(
                 return Result.Failure(new PipelineError(`Failed to write template to ${secondTemplatePath.toString()}; ${err}`));
             }
 
+            // Remove any pre-existing taint_0.json before this run so the
+            // existence poll below only succeeds on a FRESH write. The new
+            // (DynaJS FlowAnalysis) engine writes taint_0.json to CWD during the
+            // FIRST stage (taint_paths_json + abort_on_flow); without this unlink
+            // the second-stage poll false-positives on that stale first-stage
+            // file at i=0, never advancing to the argument that actually flows,
+            // and synthesis then consumes object-valued first-stage provenance.
+            await fs.rm(taintJSONPath.toString(), { force: true });
+
             // Second stage run
             const timeoutLen = 1 * 60e3;
             const secondStageAnalysisArgs = [
@@ -718,6 +761,8 @@ export async function run2ndStageDriver(
                 secondStageAnalysisArgs,
                 timeoutLen,
                 useDynajs,
+                useDynajsEngine,
+                thePackage.path(),
             );
             const analysisProc = instrumentationRun.process;
             logger.debug(`Running 2nd stage ${instrumentationRun.backend} analysis: ${analysisProc.cmd()} ${analysisProc.args().join(" ")}`);
@@ -1172,7 +1217,7 @@ const max_rounds = ${max_iterations};
 
 // Dummy functions. Real implementation is in our taint infra
 
-function __fuzzer_get_trace_properties__(e){
+${instrumentation ? `function __fuzzer_get_trace_properties__(e){
 	return e;
 }
 
@@ -1182,6 +1227,35 @@ function __fuzzer__reset_state__(){
 
 function __set_taint_flow_path__(e){
 }
+` : `function __fuzzer_get_trace_properties__(_e){
+	return {
+        called_sink: "",
+        triggers_flow: 0,
+        prefix_ace: "",
+        provenance_complexity: 0,
+        attacker_controlled_data: "",
+        branches: new Set(),
+        global_branches: new Set(),
+        code_coverage: 0,
+        global_code_coverage: 0,
+        accessed_attrs: []
+    };
+}
+
+function __fuzzer__reset_state__(){
+	return [];
+}
+
+function __set_taint_flow_path__(e){
+}
+
+function __jalangi_set_taint__(_e){
+    throw { found_flow: true };
+}
+
+function __jalangi_clear_taint__(_e){
+}
+`}
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -1389,7 +1463,6 @@ async function driver(){
     \t}
     }\n
     process.on("uncaughtException", function(e){
-        console.log("Uncatchable exception caught:", e);
         if (e.found_flow){
             var trace_prop = e.trace_prop;
             var em = fuzz.compute_exploitability_metric(trace_prop);
@@ -1397,6 +1470,8 @@ async function driver(){
             var flow = {"fromConstructor": last_from_constructor, "isConstructor": last_is_constructor, "isMethod": last_is_method, "numArguments": last_num_args, "functionName": last_function_name, "entrypointIndex": last_tried_entrypoint, "input": last_tried_input, "exploitability_metric": em, "exploitability_vals": ev};
             entrypoints_with_potential_flows.push(flow);
             report_vuln(flow, last_function_name, last_is_method, last_is_constructor, last_from_constructor);
+        } else {
+            console.log("Uncatchable exception caught:", e);
         }
     });
     

@@ -13,12 +13,6 @@ import { Tracer } from './Trace';
 import { isGhostFunction, dispatchGhostFunction } from './GhostFunction';
 import { Config } from './Config';
 import { IM } from './modules/ImportedModule';
-import { policyPrecisionMap } from './modules/PolicyManager';
-import {
-    DynaStringResult,
-    installDynajsStringResult,
-    produceDynajsSubstringResult,
-} from './modules/DynaString';
 
 export class TraceProperty {
     /* Properties regarding a certain execution to be used by the fuzzer */
@@ -91,7 +85,6 @@ export class Instrumentation {
     trace_prop: TraceProperty;
     taint_path: any;
     taint_flow_idx: number;
-    pendingDynajsStringResults: Map<IID, DynaStringResult[]>;
 
     constructor(config: Config) {
         this.s = initState(this);
@@ -100,37 +93,7 @@ export class Instrumentation {
         this.trace_prop = new TraceProperty();
         this.taint_path = "./";
         this.taint_flow_idx = 0;
-        this.pendingDynajsStringResults = new Map();
         return this;
-    }
-    private shouldUseDynajsSubstringResult(s: State, f: Function, base: Wrapped, args: Wrapped[], isNative: boolean): boolean {
-        if (!isNative || f !== String.prototype.substring || !(args.length == 1 || args.length == 2)) {
-            return false;
-        }
-        let stringPolicy = F.matchMaybe(policyPrecisionMap.get('string'), {
-            Just: (level: string): string => level,
-            Nothing: (): string => 'default',
-        });
-        return stringPolicy == 'precise' && F.isString(getValue(s, base));
-    }
-    private pushDynajsStringResult(iid: IID, result: DynaStringResult) {
-        let stack = this.pendingDynajsStringResults.get(iid);
-        if (stack === undefined) {
-            stack = [];
-            this.pendingDynajsStringResults.set(iid, stack);
-        }
-        stack.push(result);
-    }
-    private popDynajsStringResult(iid: IID): DynaStringResult | undefined {
-        let stack = this.pendingDynajsStringResults.get(iid);
-        if (stack === undefined || stack.length == 0) {
-            return undefined;
-        }
-        let result = stack.pop();
-        if (stack.length == 0) {
-            this.pendingDynajsStringResults.delete(iid);
-        }
-        return result;
     }
     scriptEnter(originalFileName: string) {
         this.t.explain(`Entering script: ${originalFileName}`);
@@ -233,7 +196,7 @@ export class Instrumentation {
         originalScriptPath: string | null,
         sourceLocation: string,
     ): Object {
-        let hasName = underscore.has(f, 'name');
+        let hasName = typeof f == 'function' && typeof f.name == 'string';
         if (typeof f == 'function' && hasName) {
             switch (f.name) {
 
@@ -292,12 +255,6 @@ export class Instrumentation {
             this.t.explain('Done with invokeFunPre');
             return {f: f, base: base, args: args};
         }
-        let modeledResult: DynaStringResult | undefined = undefined;
-        let skipNative = false;
-        if (this.shouldUseDynajsSubstringResult(s2, f, base, args, isNative)) {
-            modeledResult = produceDynajsSubstringResult(s2, f as NativeFunction, base, args);
-            skipNative = true;
-        }
 
         let [s3, result] = F.eitherThrow(
             WInvokeFunPre(iid, s2, f, base, args, isMethod, isExternal, isNative)
@@ -309,10 +266,7 @@ export class Instrumentation {
         this.s = s4;
         this.t.explain(describeState(this.s, this.config.EXPLAIN));
         this.t.explain('Done with invokeFunPre');
-        if (modeledResult !== undefined) {
-            this.pushDynajsStringResult(iid, modeledResult);
-        }
-        return {f: fP, base: baseP, args: argsP, skip: skipNative};
+        return {f: fP, base: baseP, args: argsP};
     }
     functionEnter(f: Function) {
         this.t.explain(`functionEnter on ${this.t.inspect(f, this.s)}`);
@@ -358,10 +312,6 @@ export class Instrumentation {
             this.t.explain('Done with invokeFun');
             return {f: f, base: base, args: args, result: result};
         }
-        let modeledResult = this.popDynajsStringResult(iid);
-        if (modeledResult !== undefined) {
-            result = modeledResult.value;
-        }
         // Propagate sinks for external functions
         if (this.config.SINK_PROPAGATION) {
             if ((isExternal || this.config.AGGRESSIVE_SINK_PROPAGATION) && F.isFunction(result)) {
@@ -383,9 +333,7 @@ export class Instrumentation {
         let baseP: Wrapped = res[1];
         let argsP: Wrapped[] = res[2];
         let resultP: Wrapped = res[3];
-        if (modeledResult !== undefined) {
-            var s3 = installDynajsStringResult(s2, resultP, modeledResult);
-        } else if (isNative) {
+        if (isNative) {
             var s3 = F.eitherThrow(TCall(s2, fP as NativeFunction, baseP, argsP, resultP, isNative));
         } else {
             var s3 = F.eitherThrow(TCall(s2, fP as Function, baseP, argsP, resultP, isNative));
@@ -394,7 +342,37 @@ export class Instrumentation {
         this.s = s4;
         this.t.explain(describeState(this.s, this.config.EXPLAIN));
         this.t.explain('Done with invokeFun');
+        if (f === Function && typeof result === 'function') {
+            SINKS.set(result, 'Function');
+        }
+        if (isNative) {
+            resultP = this.propagateObjectEntries(f, argsP, resultP);
+        }
         return {f: fP, base: baseP, args: argsP, result: resultP};
+    }
+
+    private propagateObjectEntries(f: Function, args: Wrapped[], result: Wrapped): Wrapped {
+        if (f !== Object.entries || args.length < 1 || !Array.isArray(result)) {
+            return result;
+        }
+
+        const source = args[0];
+        if (source === null || source === undefined || typeof source !== 'object') {
+            return result;
+        }
+
+        for (const entry of result) {
+            if (!Array.isArray(entry) || entry.length < 2) continue;
+            const key = entry[0];
+            if (typeof key !== 'string') continue;
+            if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+
+            const pre = this.getFieldPre(source, key) as any;
+            const gf = this.getField(pre.base, pre.offset, source[key], "") as any;
+            entry[1] = gf.result;
+        }
+
+        return result;
     }
     binaryPre(op: string, x1: Wrapped, x2: Wrapped): Object {
         this.t.explain(`binaryPre on ${this.t.inspect(x1, this.s)} ${op} ${this.t.inspect(x2, this.s)}`);

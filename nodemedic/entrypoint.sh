@@ -81,7 +81,7 @@ fi
 #echo "Using verdaccio: $verdaccio";
 
 batch_size="${batch_size:-1}"
-command="timeout --signal=SIGTERM $timeout /bin/sh -c \"pipeline/run_pipeline.sh 1 lower 0 --mode=$mode --log-level=debug --cache-dir=packageData --output-dir=analysisArtifacts --tmp-dir=/tmp/ --z3-path=/nodetaint/z3/bin/z3 --fresh --package=$package@$version --start-index=0 --end-index=1 --min-num-deps=10 --min-depth=-1 --require-sink-hit --policies=object:precise,string:precise,array:precise $flags --batch-size=$batch_size"
+command="timeout --signal=SIGTERM $timeout /bin/sh -c \"pipeline/run_pipeline.sh 1 lower 0 --mode=$mode --log-level=debug --cache-dir=packageData --output-dir=analysisArtifacts --tmp-dir=/tmp/ --z3-path=/nodetaint/z3/bin/z3 --fresh --package=$package@$version --start-index=0 --end-index=1 --min-num-deps=10 --min-depth=-1 --require-sink-hit --policies=object:precise,string:precise,array:precise $flags --batch-size=$batch_size --convertPotentialToString"
 
 if [ "$stop_on_1st_exploited" = true ] ; then
   command="$command --stop-on-1st-exploited"

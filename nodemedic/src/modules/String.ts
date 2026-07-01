@@ -8,7 +8,6 @@ import { getTaintEntry, getValue, oid, initPropMap,
 import { SafeMap } from '../DataStructures';
 import { encodeStringFromEntry, decodeStringToEntry } from '../StringEncoding';
 import { getObjectPolicy, policyPrecisionMap } from './PolicyManager';
-import { isDynajsSubstringResult } from './DynaString';
 
 
 export const StringPolicyPrecise: modulePolicy = {
@@ -142,9 +141,6 @@ export const StringPolicyPrecise: modulePolicy = {
         );
         // String transformation? (string --> string)
         if (F.isString(uresult)) {
-            if (f === String.prototype.substring && isDynajsSubstringResult(s, result)) {
-                return F.Left(s);
-            }
             // Get the taint entries
             let baseTaint = F.eitherThrow(getTaintEntry(s, base));
             let argsTaint = [];

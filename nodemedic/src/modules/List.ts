@@ -355,7 +355,24 @@ function arrayReduce(
                 'model:array.reduce', 
                 joinTEPaths(pathNodes), getValue(s, resultVal), getTc(s)),
         }
+        let reducePath = joinTEPaths(pathNodes);
         let MtP = s.Mt.set(resultValID, resultValTEp);
+        if (tainted && Array.isArray(resultVal)) {
+            for (let i in resultVal) {
+                let resultElem = resultVal[i];
+                let resultElemID: Object | ID = F.eitherThrow(oid(s, resultElem));
+                MtP = MtP.set(resultElemID, {
+                    taintBit: true,
+                    map: initPropMap(resultElem, true),
+                    path: newPathNode(
+                        'model:array.reduce.element',
+                        reducePath,
+                        getValue(s, resultElem),
+                        getTc(s)
+                    ),
+                });
+            }
+        }
         let sP = setMt(s, MtP);
         return F.Left(sP);
     }
