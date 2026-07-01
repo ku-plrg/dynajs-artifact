@@ -1,0 +1,8 @@
+def <BUILTIN>:INTRINSICS.Function.prototype(
+  this: ESValue,
+  ArgumentsList: List[ESValue],
+  NewTarget: Record[Object] | Undefined,
+): Unknown = {
+  call %0 = clo<"NormalCompletion">(undefined)
+  return %0
+}

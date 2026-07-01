@@ -1,0 +1,26 @@
+let globalEnv = @REALM.GlobalEnv
+let objRec = globalEnv.ObjectRecord.BindingObject.__MAP__
+let decRec = globalEnv.DeclarativeRecord.__MAP__
+let f = @REALM.GlobalObject.__MAP__.f
+
+
+assert (exists objRec.f)
+assert (? f.Value: Record[ECMAScriptFunctionObject])
+assert (= f.Writable true)
+assert (= f.Enumerable true)
+assert (= f.Configurable false)
+
+assert (! (exists objRec.x))
+assert (? decRec.x: Record[MutableBinding])
+assert decRec.x.initialized
+assert (= decRec.x.BoundValue 2.0f)
+
+assert (! (exists objRec.y))
+assert (? decRec.y: Record[MutableBinding])
+assert decRec.y.initialized
+assert (= decRec.y.BoundValue 2.0f)
+
+assert (! (exists objRec.z))
+assert (? decRec.z: Record[MutableBinding])
+assert decRec.z.initialized
+assert (= decRec.z.BoundValue 2.0f)

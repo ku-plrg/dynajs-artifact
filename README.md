@@ -1,6 +1,10 @@
 # How to install
 
 ## Requirements
+You need 
+- `node`, 
+- `sbt`, `scala`
+
 ```sh
 export DYNAJS_ARTIFACT_HOME='/path/to/artifact' # set as you need
 export DYNAJS_HOME="$DYNAJS_ARTIFACT_HOME/dynajs"
@@ -25,6 +29,9 @@ export EXPOSE_HOME="$DYNAJS_ARTIFACT_HOME/extractor"
 # How to check
 
 ## RQ1. Modeling Effort
+
+> [!NOTE]
+> 
 
 ## RQ2. Accuracy
 

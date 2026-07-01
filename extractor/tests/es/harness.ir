@@ -1,0 +1,22 @@
+let realm = @REALM
+let objRec = realm.GlobalEnv.ObjectRecord.BindingObject.__MAP__
+let map = realm.GlobalObject.__MAP__
+assert (exists objRec.assert)
+assert (exists objRec.Test262Error)
+assert (exists objRec["$DONOTEVALUATE"])
+assert (exists objRec["$ERROR"])
+assert map.x0.Value
+assert map.x1.Value
+assert map.x2.Value
+assert map.x3.Value
+assert map.x4.Value
+assert map.x5.Value
+assert map.x6.Value
+assert map.x7.Value
+assert map.x8.Value
+assert map.x9.Value
+assert map.x10.Value
+assert map.x11.Value
+assert map.x12.Value
+assert map.x13.Value
+assert map.x14.Value

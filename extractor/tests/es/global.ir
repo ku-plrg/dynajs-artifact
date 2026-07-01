@@ -1,0 +1,14 @@
+assert (= @GLOBAL.__MAP__.Infinity.Value +NUM_INF)
+assert (= @GLOBAL.__MAP__.Infinity.Writable false)
+assert (= @GLOBAL.__MAP__.Infinity.Enumerable false)
+assert (= @GLOBAL.__MAP__.Infinity.Configurable false)
+
+assert (= @GLOBAL.__MAP__.NaN.Value NaN)
+assert (= @GLOBAL.__MAP__.NaN.Writable false)
+assert (= @GLOBAL.__MAP__.NaN.Enumerable false)
+assert (= @GLOBAL.__MAP__.NaN.Configurable false)
+
+assert (= @GLOBAL.__MAP__.undefined.Value undefined)
+assert (= @GLOBAL.__MAP__.undefined.Writable false)
+assert (= @GLOBAL.__MAP__.undefined.Enumerable false)
+assert (= @GLOBAL.__MAP__.undefined.Configurable false)

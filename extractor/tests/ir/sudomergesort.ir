@@ -1,0 +1,52 @@
+def appendList(to: List, from: List): List = {
+  let i = 0
+  let len = (sizeof from)
+  while (< i len) {
+    push to < from[i]
+    i = (+ i 1)
+  }
+  return to
+}
+
+def sudomergesort(list: List[Math]) = {
+  let length = (sizeof list)
+  let sortedlist = (copy list)[#1]
+  if (= length 2) {
+    pop fst < sortedlist
+    pop snd < sortedlist
+    if (< snd fst) {
+      push sortedlist < snd
+      push sortedlist < fst
+    } else {
+      push sortedlist < fst
+      push sortedlist < snd
+    }
+  } else {
+    let left = (list [])[#1]
+    let right = sortedlist
+    let i = (>> length 1)
+    while (< 0 i) {
+      i = (- i 1)
+      pop %0 < right
+      push left < %0
+    }
+    call sortedleft = clo<"sudomergesort">(left)
+    call sortedright = clo<"sudomergesort">(right)
+    call sortedlist = clo<"appendList">(sortedleft, sortedright)
+  }
+  return sortedlist
+}
+
+
+@main def main() = {
+  let list = (list [2, 1, 3, 4, 6, 5, 8, 7]) [#1]
+  call sortedlist = clo<"sudomergesort">(list)
+  assert (= sortedlist[0] 1)
+  assert (= sortedlist[1] 2)
+  assert (= sortedlist[2] 3)
+  assert (= sortedlist[3] 4)
+  assert (= sortedlist[4] 5)
+  assert (= sortedlist[5] 6)
+  assert (= sortedlist[6] 7)
+  assert (= sortedlist[7] 8)
+}

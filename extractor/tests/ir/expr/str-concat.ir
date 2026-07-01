@@ -1,0 +1,11 @@
+@main def main() = {
+  let a = "a"
+  let b = "b"
+  let c = "c"
+  let d = 100cu
+
+  assert (= (concat a) "a")
+  assert (= (concat a b) "ab")
+  assert (= (concat a b c) "abc")
+  assert (= (concat a b c d) "abcd")
+}

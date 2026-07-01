@@ -1,0 +1,5 @@
+def HostGetImportMetaProperties(
+  moduleRecord: Record[ModuleRecord],
+): List[Record[{ Key: Record[Symbol] | String, Value: ESValue }]] = {
+  return (list [])
+}

@@ -1,0 +1,1 @@
+assert (= @REALM.GlobalObject.__MAP__.count.Value 2.0f)

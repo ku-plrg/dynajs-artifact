@@ -1,0 +1,8 @@
+def <BUILTIN>:INTRINSICS.Math.random(
+  this: ESValue,
+  ArgumentsList: List[ESValue],
+  NewTarget: Record[Object] | Undefined,
+): Unknown = {
+  call %0 = clo<"NormalCompletion">((random))
+  return %0
+}

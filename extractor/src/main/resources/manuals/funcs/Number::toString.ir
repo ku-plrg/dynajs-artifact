@@ -1,0 +1,7 @@
+def <NUM>:Number::toString(
+  x: Number,
+  radix?: Math,
+): String = {
+  if (exists radix) return ([str radix] x)
+  return ([str] x)
+}

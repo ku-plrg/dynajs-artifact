@@ -1,0 +1,5 @@
+def StringToCodePoints(
+  string: String,
+): String = {
+  return string
+}

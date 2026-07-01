@@ -1,0 +1,5 @@
+def StringToBigInt(
+  str: String,
+): BigInt | Undefined = {
+  return ([bigInt] str)
+}

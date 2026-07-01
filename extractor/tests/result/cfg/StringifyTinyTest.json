@@ -1,0 +1,6 @@
+{
+  "BranchKind" : true,
+  "CFG" : true,
+  "Func" : true,
+  "Node" : true
+}

@@ -1,0 +1,14 @@
+def <BUILTIN>:INTRINSICS.print(
+  this: ESValue,
+  ArgumentsList: List[ESValue],
+  NewTarget: Record[Object] | Undefined,
+): Unknown = {
+  let __args__ = (record)
+  if (< 0 (sizeof ArgumentsList)) {
+    pop x < ArgumentsList
+    expand __args__.x
+  } else let x = undefined
+  print x
+  call %0 = clo<"NormalCompletion">(undefined)
+  return %0
+}

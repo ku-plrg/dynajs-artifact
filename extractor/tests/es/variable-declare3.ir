@@ -1,0 +1,5 @@
+assert (contains @REALM.GlobalEnv.VarNames "y")
+assert (= @REALM.GlobalObject.__MAP__.y.Value 1.0f)
+assert (= @REALM.GlobalObject.__MAP__.y.Writable true)
+assert (= @REALM.GlobalObject.__MAP__.y.Enumerable true)
+assert (= @REALM.GlobalObject.__MAP__.y.Configurable false)

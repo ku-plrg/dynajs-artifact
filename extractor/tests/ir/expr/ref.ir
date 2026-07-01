@@ -1,0 +1,24 @@
+def f(): Record[Normal { Value : Math }] = {
+  return (record [Normal] {
+    "Type" : ~normal~,
+    "Value" : 42,
+    "Target" : ~empty~
+  })
+}
+
+@main def main() = {
+  // define reference
+  let i = 0
+  let str = "abc"
+  let list = (list [2, 1]) [#1]
+  call comp = clo<"f">()
+  assert (= i 0)
+  assert (= list[0] 2)
+  assert (= list[1] 1)
+  assert (= str[0] 97cu)
+  assert (= str[1] 98cu)
+  assert (= str[2] 99cu)
+  assert (= comp.Type ~normal~)
+  assert (= comp.Value 42)
+  assert (= comp.Target ~empty~)
+}

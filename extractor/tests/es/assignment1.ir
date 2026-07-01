@@ -1,0 +1,6 @@
+let map = @REALM.GlobalObject.__MAP__
+assert (= map.a.Value 3.0f)
+assert (= map.b.Value 9.0f)
+assert (= map.c.Value 8.0f)
+assert (= map.d.Value 64.0f)
+assert (= map.e.Value 32.0f)

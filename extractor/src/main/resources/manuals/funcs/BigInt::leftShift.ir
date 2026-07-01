@@ -1,0 +1,6 @@
+def <NUM>:BigInt::leftShift(
+  x: BigInt,
+  y: BigInt,
+): BigInt = {
+  return (<< x y)
+}

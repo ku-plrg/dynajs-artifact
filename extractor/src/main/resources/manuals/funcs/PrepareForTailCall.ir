@@ -1,0 +1,13 @@
+def PrepareForTailCall(): Enum[~unused~] = {
+  // 1. Assert: The current execution context will not subsequently be used for the evaluation of any ECMAScript code or built-in functions. The invocation of Call subsequent to the invocation of this abstract operation will create and push a new execution context before performing any such evaluation.
+  assert true
+
+  // 1. Discard all resources associated with the current execution context
+  let context = @EXECUTION_STACK[0]
+  context.LexicalEnvironment = undefined
+  context.VariableEnvironment = undefined
+  context.PrivateEnvironment = undefined
+
+  // 1. Return ~unused~.
+  return ~unused~
+}
