@@ -1,0 +1,12 @@
+# Generated repro artifacts (large single-line JSON OOMs prettier)
+docs/repro/out/
+
+# Build outputs and generated files
+bin/
+obj/
+obj-test/
+temp_build/
+babel.config.js
+*_jalangi_*.js*
+node_modules/
+package-lock.json
